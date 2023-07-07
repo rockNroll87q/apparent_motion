@@ -54,13 +54,14 @@ final_message = "This is the end of the experiment."
 Flash_period = 0.2                      # seconds for one B-W cycle (ie 1/Hz)
 boxes_separation = 400                  # (initial) distance between the two boxes
 distance_from_centre = 300              # (initial) distance between the fixation and the boxes (x-axis only)
-boxes_size = 100                        # (initial) Box size
+boxes_size = 100                        # (initial) Box size inducers
+box_target_size = 80                        # (initial) Box size target
 Flash_period = 0.2                              # seconds for one B-W cycle (ie 1/Hz)
 Increment_position = 10                 # how many pixel you move the boxes with the keyboard arrows
 Increment_size = 1.1                    # % increase/decrease of size
 
 # Timing
-Boxes_time = 20                         # sec.
+Boxes_time = 5                         # sec.
 Fixation_time = 2                      # sec.
 N_blocks = 4                            # #-repetitions of Fixation+Boxes
 
@@ -118,9 +119,20 @@ def createOutFolder(path_out):
     
     return path_out
 
-    
 
-def main_block_design(win,globalClock):
+class DisplayBoxesSettings():
+    ''' Class containing the display settings '''
+
+    show_target = True
+    show_boxes = True
+
+    def swap_target(self):
+        self.show_target = not self.show_target
+    def swap_boxes(self):
+        self.show_boxes = not self.show_boxes
+
+
+def main_block_design(win,globalClock, data_loaded):
 
     ############## Stimuli preparation ##############
 
@@ -131,13 +143,19 @@ def main_block_design(win,globalClock):
     # Square Boxes
     square_up = visual.Rect(win, size=boxes_size, pos=(+distance_from_centre, 0 + boxes_separation/2), color='white', units="pix",)
     square_bottom = visual.Rect(win, size=boxes_size, pos=(+distance_from_centre, 0 - boxes_separation/2), color='white', units="pix",)
-
+    square_target = visual.Rect(win, size=box_target_size, pos=(+distance_from_centre, 0), color='white', units="pix",)
+    
     # Restore old parameters, if needed/available
+    display_options = DisplayBoxesSettings()
     try:
         square_up.pos = data_loaded['square_up.pos']
         square_bottom.pos = data_loaded['square_bottom.pos']
+        square_target.pos = data_loaded['square_target.pos']
         square_up.size = data_loaded['square_up.size']
         square_bottom.size = data_loaded['square_bottom.size']
+        square_target.size = data_loaded['square_target.size']
+        display_options.show_boxes = data_loaded['show_boxes']
+        display_options.show_target = data_loaded['show_target']
         # fixation.pos = data_loaded['fixation.pos']
     except:
         logging.data('Initial default parameters used.')
@@ -162,6 +180,11 @@ def main_block_design(win,globalClock):
         button_pressed_string = visual.TextStim(win, text = u"Key pressed: ", units='norm', height=0.05,
                                              pos=(0, +0.93), color='yellow')
         button_pressed_string.autoDraw = True        
+
+        options_string = visual.TextStim(win, text = u"Key pressed: ", units='norm', height=0.05,
+                                             pos=(-0.85, -0.80), color='yellow')
+        options_string.text = 'arrows: box pos\n"u","i": box separation\n"h","j": box size\n"b": boxes on/off\n"t": target on/off'   
+        options_string.autoDraw = True     
 
 
     ## Display just fixation
@@ -189,12 +212,17 @@ def main_block_design(win,globalClock):
             if t % Flash_period < Flash_period / 2.0:  # more accurate to count frames
                 square_up.color = 'white'
                 square_bottom.color = 'white'
+                square_target.color = 'white'
             else:
                 square_up.color = 'black'
                 square_bottom.color = 'black'
+                square_target.color = 'black'
 
-            square_up.draw()
-            square_bottom.draw()   
+            if display_options.show_boxes:
+                square_up.draw()
+                square_bottom.draw()  
+            if display_options.show_target:
+                square_target.draw()
             win.flip()                  # Update screen
             break_flag, key_pressed = escapeCondition()
 
@@ -202,18 +230,22 @@ def main_block_design(win,globalClock):
             if 'up' in key_pressed:
                 square_up.pos       = [square_up.pos[0], square_up.pos[1] + Increment_position]
                 square_bottom.pos   = [square_bottom.pos[0], square_bottom.pos[1] + Increment_position]
+                square_target.pos   = [square_target.pos[0], square_target.pos[1] + Increment_position]
                 # fixation.pos        = [fixation.pos[0], fixation.pos[1] + Increment_position]
             if 'down' in key_pressed:
                 square_up.pos       = [square_up.pos[0], square_up.pos[1] - Increment_position]
                 square_bottom.pos   = [square_bottom.pos[0], square_bottom.pos[1] - Increment_position]
+                square_target.pos   = [square_target.pos[0], square_target.pos[1] - Increment_position]
                 # fixation.pos        = [fixation.pos[0], fixation.pos[1] - Increment_position]
             if 'left' in key_pressed:
                 square_up.pos       = [square_up.pos[0] - Increment_position, square_up.pos[1]]
                 square_bottom.pos   = [square_bottom.pos[0] - Increment_position, square_bottom.pos[1]]
+                square_target.pos   = [square_target.pos[0] - Increment_position, square_target.pos[1]]
                 # fixation.pos        = [fixation.pos[0] - Increment_position, fixation.pos[1]]
             if 'right' in key_pressed:
                 square_up.pos       = [square_up.pos[0] + Increment_position, square_up.pos[1]]
                 square_bottom.pos   = [square_bottom.pos[0] + Increment_position, square_bottom.pos[1]]
+                square_target.pos   = [square_target.pos[0] + Increment_position, square_target.pos[1]]
                 # fixation.pos        = [fixation.pos[0] + Increment_position, fixation.pos[1]]
 
             # Change the boxes_separation with ['u', 'i']
@@ -228,10 +260,17 @@ def main_block_design(win,globalClock):
             if 'h' in key_pressed:
                 square_up.size      *= Increment_size
                 square_bottom.size  *= Increment_size
+                square_target.size  *= Increment_size
             if 'j' in key_pressed:
                 square_up.size      /= Increment_size
                 square_bottom.size  /= Increment_size
+                square_target.size  /= Increment_size
             
+            # Make the target disappear or re-appear
+            if 'b' in key_pressed:
+                display_options.swap_boxes()
+            if 't' in key_pressed:
+                display_options.swap_target()
 
             if DEBUG_MODE:
                 if t - last_fps_update > Fps_update_rate:         # update the fps text every second
@@ -282,14 +321,15 @@ def main_block_design(win,globalClock):
         if displayBoxes(win, boxes_time=Boxes_time) == False: break
 
         # Save a json with all the parameters
-        print(win.size)
-        print([i for i in win.size])
-        data_to_save = {"square_up.pos": list(square_up.pos), "square_bottom.pos": list(square_bottom.pos), 
-                        "square_up.size": list(square_up.size), "square_bottom.size": list(square_bottom.size),
-                        "fixation.pos": list(fixation.pos), "win.size": list([str(i) for i in win.size])}
+        data_to_save = {"square_up.pos": list(square_up.pos), "square_up.size": list(square_up.size), 
+                        "square_bottom.pos": list(square_bottom.pos), "square_bottom.size": list(square_bottom.size),
+                        "square_target.pos": list(square_target.pos), "square_target.size": list(square_target.size), 
+                        "show_boxes": display_options.show_boxes, "show_target": display_options.show_target,
+                        "fixation.pos": list(fixation.pos), "win.size": list([str(i) for i in win.size])
+                        }
         with open(opj(path_out, json_filename), "w") as file:
             json.dump(data_to_save, file, indent=4)
-        logging.data('data_saved: ' + ', '.join([f'{key}: {value}' for key, value in data_loaded.items()]))
+        logging.data('data_saved: ' + ', '.join([f'{key}: {value}' for key, value in data_to_save.items()]))
 
 
 
@@ -339,6 +379,7 @@ if __name__ == "__main__":
                 data_loaded = json.load(file)
             logging.data('data_loaded: ' + ', '.join([f'{key}: {value}' for key, value in data_loaded.items()]))
         except:
+            data_loaded = {}
             logging.data('No json loaded (does not exist or not loadable)')
 
     # Start window
@@ -349,7 +390,7 @@ if __name__ == "__main__":
 
     # Main stimulation    
     try:
-        main_block_design(win,globalClock)
+        main_block_design(win,globalClock, data_loaded)
     except Exception as e:
         logging.log(e,level=logging.ERROR)
         
@@ -364,3 +405,7 @@ if __name__ == "__main__":
     core.quit()
 
 
+
+
+        # print(win.size)
+        # print([i for i in win.size])
