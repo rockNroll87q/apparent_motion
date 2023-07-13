@@ -15,7 +15,7 @@ Created on Wednesday - May 10 2023, 14:33:12
 from __future__ import absolute_import, division, print_function
 
 
-from psychopy import visual, core, event, logging
+from psychopy import visual, core, event, logging, monitors
 from psychopy import prefs as pyschopy_prefs
 from psychopy import gui
 
@@ -31,7 +31,7 @@ import json
 ## Paths and Constants
 
 Fullscreen = True
-Screen_dimensions = (500,500)
+Screen_dimensions = (1920, 1080)
 Background_color = 'gray'
 DEBUG_MODE = True                                   # Debug mode
 BUTTON_BOX = False
@@ -52,10 +52,15 @@ final_message = "This is the end of the experiment."
 
 # Boxes 
 Flash_period = 0.2                      # seconds for one B-W cycle (ie 1/Hz)
-boxes_separation = 400                  # (initial) distance between the two boxes
-distance_from_centre = 300              # (initial) distance between the fixation and the boxes (x-axis only)
-boxes_size = 100                        # (initial) Box size inducers
-box_target_size = 80                        # (initial) Box size target
+# boxes_separation = 400                  # (initial) distance between the two boxes
+# distance_from_centre = 300              # (initial) distance between the fixation and the boxes (x-axis only)
+# boxes_size = 100                        # (initial) Box size inducers
+# box_target_size = 80                        # (initial) Box size target
+# (8,-2.5), (8,-6), (8,6)
+boxes_separation = 6                  # (initial) distance between the two boxes
+distance_from_centre = 5              # (initial) distance between the fixation and the boxes (x-axis only)
+boxes_size = (1.2, 1.2)                        # (initial) Box size inducers
+box_target_size = (1., 1.)                        # (initial) Box size target
 Flash_period = 0.2                              # seconds for one B-W cycle (ie 1/Hz)
 Increment_position = 10                 # how many pixel you move the boxes with the keyboard arrows
 Increment_size = 1.1                    # % increase/decrease of size
@@ -141,9 +146,9 @@ def main_block_design(win,globalClock, data_loaded):
         size=(20,20),closeShape=False,lineColor='white')
     
     # Square Boxes
-    square_up = visual.Rect(win, size=boxes_size, pos=(+distance_from_centre, 0 + boxes_separation/2), color='white', units="pix",)
-    square_bottom = visual.Rect(win, size=boxes_size, pos=(+distance_from_centre, 0 - boxes_separation/2), color='white', units="pix",)
-    square_target = visual.Rect(win, size=box_target_size, pos=(+distance_from_centre, 0), color='white', units="pix",)
+    square_up = visual.Rect(win, size=boxes_size, pos=(+distance_from_centre, 0 + boxes_separation/2), color='white', units='deg')#units="pix",)
+    square_bottom = visual.Rect(win, size=boxes_size, pos=(+distance_from_centre, 0 - boxes_separation/2), color='white', units='deg')#units="pix",)
+    square_target = visual.Rect(win, size=box_target_size, pos=(+distance_from_centre, 0), color='white', units='deg')#units="pix",)
     
     # Restore old parameters, if needed/available
     display_options = DisplayBoxesSettings()
@@ -298,7 +303,7 @@ def main_block_design(win,globalClock, data_loaded):
 
     ## Scanner trigger wait
     message3 = visual.TextStim(win, pos=[0,0.25], text=scanner_message)
-    message3.size = .2
+    message3.size = .1
     message3.draw()
     fixation.autoDraw = True
     win.flip()
@@ -383,8 +388,13 @@ if __name__ == "__main__":
             logging.data('No json loaded (does not exist or not loadable)')
 
     # Start window
-    win = visual.Window(Screen_dimensions, monitor="mon", units="norm", fullscr=Fullscreen,
-                        color=Background_color, allowStencil=True, screen=1)
+    my_monitor = monitors.Monitor(name='my_monitor_name')
+    my_monitor.setSizePix(Screen_dimensions)
+    my_monitor.setWidth(24)
+    my_monitor.setDistance(100)
+    my_monitor.saveMon()    
+    win = visual.Window(Screen_dimensions, monitor="my_monitor_name", units="norm", 
+                        fullscr=Fullscreen, color=Background_color, allowStencil=True, screen=1)
     win.recordFrameIntervals = True
     resX,resY = win.size
 
