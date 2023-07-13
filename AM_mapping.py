@@ -12,14 +12,10 @@ Created on Wednesday - May 10 2023, 14:33:12
 ################################################################################################################
 ## Imports 
 
-from __future__ import absolute_import, division, print_function
-
-
 from psychopy import visual, core, event, logging, monitors
 from psychopy import prefs as pyschopy_prefs
-from psychopy import gui
 
-import os, sys
+import os
 from os.path import join as opj
 from datetime import datetime as dt
 from time import gmtime, strftime
