@@ -52,21 +52,18 @@ final_message = "This is the end of the experiment."
 
 # Boxes 
 Flash_period = 0.2                      # seconds for one B-W cycle (ie 1/Hz)
-# boxes_separation = 400                  # (initial) distance between the two boxes
-# distance_from_centre = 300              # (initial) distance between the fixation and the boxes (x-axis only)
-# boxes_size = 100                        # (initial) Box size inducers
-# box_target_size = 80                        # (initial) Box size target
 # (8,-2.5), (8,-6), (8,6)
 boxes_separation = 6                  # (initial) distance between the two boxes
 distance_from_centre = 5              # (initial) distance between the fixation and the boxes (x-axis only)
 boxes_size = (1.2, 1.2)                        # (initial) Box size inducers
-box_target_size = (1., 1.)                        # (initial) Box size target
+target_size = (1., 1.)                        # (initial) Box size target
+target_pos = -2.5/2
 Flash_period = 0.2                              # seconds for one B-W cycle (ie 1/Hz)
-Increment_position = 10                 # how many pixel you move the boxes with the keyboard arrows
+Increment_position = 0.05                 # % of move the boxes with the keyboard arrows
 Increment_size = 1.1                    # % increase/decrease of size
 
 # Timing
-Boxes_time = 5                         # sec.
+Boxes_time = 15                         # sec.
 Fixation_time = 2                      # sec.
 N_blocks = 4                            # #-repetitions of Fixation+Boxes
 
@@ -148,7 +145,7 @@ def main_block_design(win,globalClock, data_loaded):
     # Square Boxes
     square_up = visual.Rect(win, size=boxes_size, pos=(+distance_from_centre, 0 + boxes_separation/2), color='white', units='deg')#units="pix",)
     square_bottom = visual.Rect(win, size=boxes_size, pos=(+distance_from_centre, 0 - boxes_separation/2), color='white', units='deg')#units="pix",)
-    square_target = visual.Rect(win, size=box_target_size, pos=(+distance_from_centre, 0), color='white', units='deg')#units="pix",)
+    square_target = visual.Rect(win, size=target_size, pos=(+distance_from_centre, target_pos), color='white', units='deg')#units="pix",)
     
     # Restore old parameters, if needed/available
     display_options = DisplayBoxesSettings()
@@ -257,9 +254,11 @@ def main_block_design(win,globalClock, data_loaded):
             if 'u' in key_pressed:
                 square_up.pos       = [square_up.pos[0], square_up.pos[1] + Increment_position]
                 square_bottom.pos   = [square_bottom.pos[0], square_bottom.pos[1] - Increment_position]
+                square_target.pos   = [square_target.pos[0], square_target.pos[1] - Increment_position]
             if 'i' in key_pressed:
                 square_up.pos       = [square_up.pos[0], square_up.pos[1] - Increment_position]
                 square_bottom.pos   = [square_bottom.pos[0], square_bottom.pos[1] + Increment_position]
+                square_target.pos   = [square_target.pos[0], square_target.pos[1] + Increment_position]
 
             # Change the boxes size with ['h', 'j']
             if 'h' in key_pressed:
@@ -419,3 +418,9 @@ if __name__ == "__main__":
 
         # print(win.size)
         # print([i for i in win.size])
+
+
+# boxes_separation = 400                  # (initial) distance between the two boxes
+# distance_from_centre = 300              # (initial) distance between the fixation and the boxes (x-axis only)
+# boxes_size = 100                        # (initial) Box size inducers
+# box_target_size = 80                        # (initial) Box size target
