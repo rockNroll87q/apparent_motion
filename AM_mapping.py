@@ -14,8 +14,9 @@ Created on Wednesday - May 10 2023, 14:33:12
 
 from psychopy import visual, core, event, logging, monitors
 from psychopy import prefs as pyschopy_prefs
+from psychopy import gui
 
-import os
+import os, sys
 from os.path import join as opj
 from datetime import datetime as dt
 from time import gmtime, strftime
@@ -29,9 +30,6 @@ import json
 Fullscreen = True
 Screen_dimensions = (1920, 1080)
 Background_color = 'gray'
-DEBUG_MODE = True                                   # Debug mode
-BUTTON_BOX = False
-IMPORT_LAST_PARAMETERS = True
 Fps_update_rate = 1                             # sec
 
 Path_in_sounds = '../in/'
@@ -128,6 +126,26 @@ class DisplayBoxesSettings():
         self.show_target = not self.show_target
     def swap_boxes(self):
         self.show_boxes = not self.show_boxes
+
+
+def initialBox():    
+    dlg = gui.Dlg(title="Experiment")
+    dlg.addText('Experiment detail', color='Blue')
+    dlg.addField('Operator:', 'MS')
+    dlg.addField('Debug mode:', True)
+    dlg.addField('Scanner:', False)    
+    dlg.addField('Import last parameters:', True)    
+    
+    dlg.addText('Subject Info', color='Blue')
+    dlg.addField('Subject-code:', 'FFE21')
+    # dlg.addField('Age:', tip='18 to 00')
+    # dlg.addField('Gender:', choices=['male', 'female'])
+
+    all_infos = dlg.show()
+    if dlg.OK:
+        return all_infos
+    else:
+        return None
 
 
 def main_block_design(win,globalClock, data_loaded):
@@ -351,10 +369,17 @@ def main_block_design(win,globalClock, data_loaded):
 
 if __name__ == "__main__":  
 
+    # Dialog box to setup initial info
+    all_infos = initialBox()
+    if all_infos == None:
+        sys.exit(0)
+    else:
+        operator, DEBUG_MODE, BUTTON_BOX, IMPORT_LAST_PARAMETERS, subject_code = all_infos
+
     # Prepare out folder
-    path_out = Dir_save + dt.today().strftime('%Y-%m-%d') + '_test'
+    path_out = Dir_save + dt.today().strftime('%Y-%m-%d_%H-%M-%S') + '_' + subject_code
     path_out = createOutFolder(path_out)
-                
+
     # Set the log module to report warnings to the standard output window
     globalClock = core.Clock()
     logging.setDefaultClock(globalClock)
@@ -363,6 +388,7 @@ if __name__ == "__main__":
     logging.data("------------- " + strftime("%Y-%m-%d %H:%M:%S", gmtime()) + " -------------")
     logging.data(pyschopy_prefs)
     logging.data("Saving in folder: " + path_out)
+    logging.data("Initial setup (operator, DEBUG_MODE, BUTTON_BOX, IMPORT_LAST_PARAMETERS, subject_code): " + str(all_infos))
     logging.data('***** Starting *****')
 
     if BUTTON_BOX:
@@ -373,14 +399,19 @@ if __name__ == "__main__":
     # Retrieve the json with parameters if exists
     if IMPORT_LAST_PARAMETERS:
         all_jsons = find_list_of_file(Dir_save, json_filename)
+        subj_json = sorted([i for i in all_jsons if subject_code in i])[-1]
         try:
-            last_created_json_filename = get_last_created_json(all_jsons)
-            with open(last_created_json_filename, "r") as file:
+            with open(subj_json, "r") as file:
                 data_loaded = json.load(file)
+
             logging.data('data_loaded: ' + ', '.join([f'{key}: {value}' for key, value in data_loaded.items()]))
+            logging.data('From file: ' + subj_json)
         except:
             data_loaded = {}
             logging.data('No json loaded (does not exist or not loadable)')
+    else:
+        data_loaded = {}
+        logging.data('No json loaded (does not exist or not loadable)')
 
     # Start window
     my_monitor = monitors.Monitor(name='my_monitor_name')
