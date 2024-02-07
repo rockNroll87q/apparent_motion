@@ -276,7 +276,8 @@ def main_block_design(win,globalClock, data_loaded):
 
 
     ## Display just boxes
-    def displayBoxes(win, boxes_time=2, break_flag=True):
+    def blinking(win, show_target=True, boxes_time=2, break_flag=True):
+        ''' Display the blinking condition '''
         
         timer_boxes = core.CountdownTimer(boxes_time)    
         last_fps_update = 0
