@@ -58,6 +58,7 @@ Increment_size = 1.1                    # % increase/decrease of size
 
 # Timing
 Boxes_time = 15                         # sec.
+Initial_baseline = 2#0                   # sec.
 Fixation_time = 2                      # sec.
 N_blocks = 4                            # #-repetitions of Fixation+Boxes
 
@@ -335,7 +336,7 @@ def main_block_design(win,globalClock, data_loaded):
     for i_block in range(N_blocks):           # Run experiment a 'block' at the time    
         
         # Fixation
-        if displayFixation(win, fixation_time=Fixation_time) == False: break
+        if displayFixation(win, fixation_time=Initial_baseline) == False: break
         if displayBoxes(win, boxes_time=Boxes_time) == False: break
 
         # Save a json with all the parameters
@@ -399,8 +400,8 @@ if __name__ == "__main__":
     # Retrieve the json with parameters if exists
     if IMPORT_LAST_PARAMETERS:
         all_jsons = find_list_of_file(Dir_save, json_filename)
-        subj_json = sorted([i for i in all_jsons if subject_code in i])[-1]
         try:
+            subj_json = sorted([i for i in all_jsons if subject_code in i])[-1]
             with open(subj_json, "r") as file:
                 data_loaded = json.load(file)
 
