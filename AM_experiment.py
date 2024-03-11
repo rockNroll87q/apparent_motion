@@ -6,8 +6,8 @@ Created on Wednesday - May 10 2023, 14:33:12
 
 @author: Michele Svanera, University of Glasgow
 
-This code is used at the beginning of the experiment to obtain the best position for the boxes.
-Once those have been figured out, AM_experiment.py is the code to use to run the experiment.
+This code is used to run the experiment.
+The position of the boxes and the target cannot be changed.
  
 """
 
@@ -22,6 +22,7 @@ import os, sys
 from os.path import join as opj
 from datetime import datetime as dt
 from time import gmtime, strftime
+import pandas as pd
 import numpy as np
 import json
 
@@ -38,32 +39,39 @@ Path_in_sounds = '../in/'
 Root_dir = '../'     #'D:/Mucklis_lab/MIB/stimulus_src/'
 Dir_save = Root_dir + 'out/'
 Log_name = 'myLogFile.log'
+Csv_name = 'design.csv'
 Frames_durations_name = 'frames_durations.npy'
 json_filename = 'last_parameters.json'
 
 # Messages
 init_mess_1 = "Please follow displayed instructions. Press a key to continue.."
+# init_mess_1 = "Before we begin, let us run through a brief introduction. You are free to withdraw from your participation in this study at any time. \
+#             During the experiment, please look at the central fixation cross whenever it appears in the centre. \
+#             In each sequence, two objects will vertically flash in succession from one corner to another corner of the screen. Such a sequence could go from upper left to lower left corner, or from lower right to upper right corner. Sometimes this presentation may look like there is motion between the dots. \
+#             You will also sometimes see a third object between the two objects on some sequences. This object is called target. \
+#             A cycle can be one sequence, or it can feature multiple sequences in succession. \
+#             All this may sound a bit abstract and confusing, but your task throughout the experiment is actually really simple: fixate on the central fixation cross and respond to the questions at the end of each cycle. You will be asked if you saw motion, and you will also be asked if you saw a target between the two objects. That's it. The whole process will repeat multiple times. \
+#             Please press a key to continue."
 scanner_message = "Waiting for the scanner..."
 final_message = "This is the end of the experiment."
 
 # Boxes 
 Flash_period = 0.2                      # seconds for one B-W cycle (ie 1/Hz)
-# (8,-2.5), (8,-6), (8,6)
 boxes_separation = 6                  # (initial) distance between the two boxes
 distance_from_centre = 5              # (initial) distance between the fixation and the boxes (x-axis only)
 boxes_size = (1.2, 1.2)                        # (initial) Box size inducers
 target_size = (1., 1.)                        # (initial) Box size target
 target_pos = -2.5/2
-Flash_period = 0.2                              # seconds for one B-W cycle (ie 1/Hz)
 Increment_position = 0.05                 # % of move the boxes with the keyboard arrows
 Increment_size = 1.1                    # % increase/decrease of size
 
-# Timing
-Boxes_time = 15                         # sec.
-Initial_baseline = 2#0                   # sec.
-Fixation_time = 2                      # sec.
-N_blocks = 4                            # #-repetitions of Fixation+Boxes
+# Fixation cross
+Color_change_cross = True
+Color_change_rate = 6 * 2               # sec
 
+# Timing
+AM_inducers_cycles = 6                  # sec.
+Block_duration = 14                     # sec.    
 
 
 ################################################################################################################
@@ -79,6 +87,12 @@ def find_list_of_file(path_in, identifier='nii.gz'):
 
     all_anat = sorted(list(np.unique(all_anat)))
     return [i for i in all_anat if '/._' not in i]
+
+
+def load_csv_design(path_in):
+    ''' Load the csv file with the design matrix '''
+    df = pd.read_csv(path_in)
+    return df
 
 
 def get_last_created_json(files):
@@ -135,7 +149,6 @@ def initialBox():
     dlg = gui.Dlg(title="Experiment")
     dlg.addText('Experiment detail', color='Blue')
     dlg.addField('Operator:', 'MS')
-    dlg.addField('Debug mode:', True)
     dlg.addField('Scanner:', False)    
     dlg.addField('Import last parameters:', True)    
     
@@ -151,7 +164,81 @@ def initialBox():
         return None
 
 
-def main_block_design(win,globalClock, data_loaded):
+def create_timeline_fixation(duration = 762):
+    ''' Create the timeline for the fixation's color '''
+
+    timeline = np.zeros(duration * 1000)                # in ms
+    t = 0
+    last = 0
+    while(1):
+        i_block = np.random.uniform(6, 15)   
+        i_block = np.round(i_block * 1000).astype(int)  # in ms
+        timeline[t : t+i_block] = 1 if last == 0 else 0
+        last = 1 if last == 0 else 0
+        t = t + i_block
+        if t > duration * 1000:
+            break
+        
+    return timeline
+
+
+def create_timeline_blocks(AM_inducers_cycles,
+                            target_timing, target_starting,
+                            inducer_showing_time=83, target_showing_time=33, block_duration=1000):     
+    ''' 
+    Create the timeline for the experiment.
+    :param AM_inducers_cycles: number of cycles for the AM inducers
+    :param target_timing: timing for the target, could be 'in-time' or 'out-time' (or 'blinking')
+    :param target_starting: starting time for the target, could be 'begin' or 'late' (or 'blinking')
+    :param inducer_showing_time: time for the inducers to be shown
+    :param target_showing_time: time for the target to be shown
+    :param block_duration: duration of the block (in ms)
+    :return timelines: the timelines for the experiment for each block
+    '''
+
+    # Create a ms precision timeline for each of the in-time and out-time conditions
+    timeline = np.linspace(0, 1, block_duration+1)
+    timeline_up = np.zeros(len(timeline))
+    timeline_bottom = np.zeros(len(timeline))
+    timeline_target = np.zeros(len(timeline))
+
+    t = 0
+    for i_cycle in range(AM_inducers_cycles):
+
+        # Special case: blinking
+        if target_timing == 'blinking' or target_starting == 'blinking':
+            timeline_up[t : t+inducer_showing_time] = 1
+            timeline_bottom[t : t+inducer_showing_time] = 1
+            t = t + 166 + 166           # 166ms for the two inducers
+            continue
+
+        # 0-83ms: first inducer (inducer_showing_time)
+        timeline_up[t : t+inducer_showing_time] = 1
+            
+        # 100ms: target if 'begin' (first cycle)
+        if target_timing == 'in-time' and target_starting == 'begin' and i_cycle == 0:
+            timeline_target[t+100: t+100+target_showing_time] = 1
+        elif target_timing == 'out-time' and target_starting == 'begin' and i_cycle == 0:
+            timeline_target[t+133: t+133+target_showing_time] = 1
+
+        # 100ms: target if 'late' (last cycle)
+        if target_timing == 'in-time' and target_starting == 'late' and i_cycle == (AM_inducers_cycles-1):
+            timeline_target[t+100: t+100+target_showing_time] = 1
+        elif target_timing == 'out-time' and target_starting == 'late' and i_cycle == (AM_inducers_cycles-1):
+            timeline_target[t+133: t+133+target_showing_time] = 1
+
+        # 166-249ms: second inducer (inducer_showing_time)
+        timeline_bottom[t+166 : t+166+inducer_showing_time] = 1
+
+        # Update t
+        t = t + 166 + 166           # 166ms for the two inducers
+
+    return {'timeline_up': timeline_up, 'timeline_bottom': timeline_bottom, 
+            'timeline_target': timeline_target}
+
+
+def main_block_design(win, globalClock, data_loaded, timelines, fixation_timeline):
+    ''' Main function to run the experiment '''
 
     ############## Stimuli preparation ##############
 
@@ -164,16 +251,27 @@ def main_block_design(win,globalClock, data_loaded):
     square_bottom = visual.Rect(win, size=boxes_size, pos=(+distance_from_centre, 0 - boxes_separation/2), color='white', units='deg')#units="pix",)
     square_target = visual.Rect(win, size=target_size, pos=(+distance_from_centre, target_pos), color='white', units='deg')#units="pix",)
     
+    # Localiser
+    grating_texture = np.tile([[1,-1],[-1,1]], (4,4))
+    grating_texture = np.dstack((grating_texture,grating_texture,grating_texture))
+    grating_1 = visual.GratingStim(win,tex=grating_texture,color=[1.0, 1.0, 1.0],colorSpace='rgb', units="deg",
+        size=target_size,ori=0,autoLog=False,interpolate=False,pos=square_target.pos)
+    grating_2 = visual.GratingStim(win,tex=~grating_texture+1,color=[1.0, 1.0, 1.0],colorSpace='rgb', units="deg",
+        size=target_size,ori=0,autoLog=False,interpolate=False,pos=square_target.pos)
+
+
     # Restore old parameters, if needed/available
     display_options = DisplayBoxesSettings()
     try:
         square_up.pos = data_loaded['square_up.pos']
         square_bottom.pos = data_loaded['square_bottom.pos']
         square_target.pos = data_loaded['square_target.pos']
+        grating_1.pos = square_target.pos
+        grating_2.pos = square_target.pos
         square_up.size = data_loaded['square_up.size']
         square_bottom.size = data_loaded['square_bottom.size']
         square_target.size = data_loaded['square_target.size']
-        display_options.show_boxes = data_loaded['show_boxes']
+        display_options.show_boxes = data_loaded['show_boxes']      # not really used
         display_options.show_target = data_loaded['show_target']
         # fixation.pos = data_loaded['fixation.pos']
     except:
@@ -190,133 +288,120 @@ def main_block_design(win,globalClock, data_loaded):
                 return False, key_pressed
         return True, key_pressed
 
-    def key_checks(key_pressed, last_key_pressed):
-        ''' Checks on the single keys pressed '''
 
-        # Change position of the boxes + fixation with ['up', 'down', 'left', 'right']
-        if 'up' in key_pressed:
-            square_up.pos       = [square_up.pos[0], square_up.pos[1] + Increment_position]
-            square_bottom.pos   = [square_bottom.pos[0], square_bottom.pos[1] + Increment_position]
-            square_target.pos   = [square_target.pos[0], square_target.pos[1] + Increment_position]
-            # fixation.pos        = [fixation.pos[0], fixation.pos[1] + Increment_position]
-        if 'down' in key_pressed:
-            square_up.pos       = [square_up.pos[0], square_up.pos[1] - Increment_position]
-            square_bottom.pos   = [square_bottom.pos[0], square_bottom.pos[1] - Increment_position]
-            square_target.pos   = [square_target.pos[0], square_target.pos[1] - Increment_position]
-            # fixation.pos        = [fixation.pos[0], fixation.pos[1] - Increment_position]
-        if 'left' in key_pressed:
-            square_up.pos       = [square_up.pos[0] - Increment_position, square_up.pos[1]]
-            square_bottom.pos   = [square_bottom.pos[0] - Increment_position, square_bottom.pos[1]]
-            square_target.pos   = [square_target.pos[0] - Increment_position, square_target.pos[1]]
-            # fixation.pos        = [fixation.pos[0] - Increment_position, fixation.pos[1]]
-        if 'right' in key_pressed:
-            square_up.pos       = [square_up.pos[0] + Increment_position, square_up.pos[1]]
-            square_bottom.pos   = [square_bottom.pos[0] + Increment_position, square_bottom.pos[1]]
-            square_target.pos   = [square_target.pos[0] + Increment_position, square_target.pos[1]]
-            # fixation.pos        = [fixation.pos[0] + Increment_position, fixation.pos[1]]
+    def change_color_fixation(t_begin_exp):
+        ''' Change the color of the fixation cross '''
 
-        # Change the boxes_separation with ['u', 'i']
-        if 'u' in key_pressed:
-            square_up.pos       = [square_up.pos[0], square_up.pos[1] + Increment_position]
-            square_bottom.pos   = [square_bottom.pos[0], square_bottom.pos[1] - Increment_position]
-            square_target.pos   = [square_target.pos[0], square_target.pos[1] - Increment_position]
-        if 'i' in key_pressed:
-            square_up.pos       = [square_up.pos[0], square_up.pos[1] - Increment_position]
-            square_bottom.pos   = [square_bottom.pos[0], square_bottom.pos[1] + Increment_position]
-            square_target.pos   = [square_target.pos[0], square_target.pos[1] + Increment_position]
-
-        # Change the boxes size with ['h', 'j']
-        if 'h' in key_pressed:
-            square_up.size      *= Increment_size
-            square_bottom.size  *= Increment_size
-            square_target.size  *= Increment_size
-        if 'j' in key_pressed:
-            square_up.size      /= Increment_size
-            square_bottom.size  /= Increment_size
-            square_target.size  /= Increment_size
-        
-        # Make the target disappear or re-appear
-        if 'b' in key_pressed:
-            display_options.swap_boxes()
-        if 't' in key_pressed:
-            display_options.swap_target()
-
-        if DEBUG_MODE:
-            key_pressed_str = (' - '.join(key_pressed))
-            if last_key_pressed != key_pressed_str and key_pressed_str != '':
-                last_key_pressed = key_pressed_str
-                button_pressed_string.text = 'Key pressed: ' + last_key_pressed
-        return last_key_pressed
-
-    # DEBUG stimuli
-    if DEBUG_MODE:
-        fps_text = visual.TextStim(win, units='norm', height=0.05,pos=(-0.93, +0.93), text='starting...', color='yellow')    
-        fps_text.autoDraw = True
-        
-        button_pressed_string = visual.TextStim(win, text = u"Key pressed: ", units='norm', height=0.05,
-                                             pos=(0, +0.93), color='yellow')
-        button_pressed_string.autoDraw = True        
-
-        options_string = visual.TextStim(win, text = u"Key pressed: ", units='norm', height=0.05,
-                                             pos=(-0.85, -0.80), color='yellow')
-        options_string.text = 'arrows: box pos\n"u","i": box separation\n"h","j": box size\n"b": boxes on/off\n"t": target on/off'   
-        options_string.autoDraw = True     
+        t_fix = (dt.now()-t_begin_exp).total_seconds()
+        t_fix_indx = np.round(t_fix * 1000).astype(int)
+        if Color_change_cross and fixation_timeline[t_fix_indx] == 1:
+            fixation.lineColor = 'red'
+        else:
+            fixation.lineColor = 'green'
 
 
-    ## Display just fixation
-    def displayFixation(win,fixation_time=2,break_flag=True):
+    def displayFixation(win, time=2, break_flag=True, **kwargs):
+        ''' Display just -fixation- '''
 
-        timer_fixation = core.CountdownTimer(fixation_time)    
+        t_begin_exp = kwargs['t_zero']
+
+        timer_fixation = core.CountdownTimer(time)    
         while (timer_fixation.getTime() > 0 and break_flag==True):    
 
+            change_color_fixation(t_begin_exp)
             fixation.draw()                                        
-            win.flip()                  # Update screen
+            win.flip()
             break_flag, _ = escapeCondition()                  
         return break_flag
 
 
-    ## Display just boxes
-    def blinking(win, show_target=True, boxes_time=2, break_flag=True):
-        ''' Display the blinking condition '''
+    def localiser(win, time=2, break_flag=True, **kwargs):
+        ''' 
+        Display the -localiser- condition (target box only).
+            :param time: total duration of the block (in sec.), 
+                which means fixation for 'time' - 'timing' sec.
+            :param timing: duration of the localiser (in sec.)
+        '''
         
-        timer_boxes = core.CountdownTimer(boxes_time)    
-        last_fps_update = 0
-        last_key_pressed = ''
-        
-        while (timer_boxes.getTime() > 0 and break_flag==True):    
+        # Localiser
+        Localiser_timing = kwargs['timing']
+        t_begin_exp = kwargs['t_zero']
+
+        timer_localiser = core.CountdownTimer(Localiser_timing)            
+        while (timer_localiser.getTime() > 0 and break_flag==True):    
             t = globalClock.getTime()
 
             if t % Flash_period < Flash_period / 2.0:  # more accurate to count frames
-                square_up.color = 'white'
-                square_bottom.color = 'white'
-                square_target.color = 'white'
+                stim = grating_1
             else:
-                square_up.color = 'black'
-                square_bottom.color = 'black'
-                square_target.color = 'black'
+                stim = grating_2
+            stim.draw()
 
-            if display_options.show_boxes:
-                square_up.draw()
-                square_bottom.draw()  
-            if display_options.show_target:
-                square_target.draw()
+            change_color_fixation(t_begin_exp)
             win.flip()                  # Update screen
             break_flag, key_pressed = escapeCondition()
-            last_key_pressed = key_checks(key_pressed, last_key_pressed)
-            if DEBUG_MODE:
-                if t - last_fps_update > Fps_update_rate:         # update the fps text every second
-                    fps_text.text = "%.2f fps" % win.fps()
-                    last_fps_update += 1         
 
+        # Baseline
+        timer_fixation = core.CountdownTimer(time - Localiser_timing)    
+        while (timer_fixation.getTime() > 0 and break_flag==True):    
+
+            fixation.draw()                                        
+            win.flip()
+            break_flag, _ = escapeCondition()                  
         return break_flag
-   
 
+
+    ## Display -apparent_motion- condition
+    def apparent_motion(win, time=2, break_flag=True, **kwargs):
+        ''' 
+            Display the -apparent_motion- condition.
+            It could be one between: 'in-time_begin', 'out-time_begin', 'in-time_late', 'out-time_late', 'blinking' 
+        '''
+        # Retrieve the timings
+        timeline_up = kwargs['timeline_up']
+        timeline_bottom = kwargs['timeline_bottom']
+        timeline_target = kwargs['timeline_target']
+        t_begin_exp = kwargs['t_zero']
+
+        timer_boxes = core.CountdownTimer(time)    
+        while (timer_boxes.getTime() > 0 and break_flag==True):    
+            t = time - timer_boxes.getTime()            # seconds from the beginning of the block
+            t_indx = np.round(t * 1000).astype(int)     # index of the timeline        
+            
+            # Based on the timeline, change the color of the boxes (i.e., display them or not)
+            if timeline_up[t_indx] == 1:
+                square_up.color = 'white'
+            else:
+                square_up.color = Background_color
+            if timeline_bottom[t_indx] == 1:
+                square_bottom.color = 'white'
+            else:
+                square_bottom.color = Background_color
+            if timeline_target[t_indx] == 1:
+                square_target.color = 'white'
+            else:
+                square_target.color = Background_color
+               
+            # TODO: display the proper side based on kwargs['screen_side']
+            
+            
+            # Display boxes
+            square_up.draw()
+            square_bottom.draw()  
+            square_target.draw()
+            change_color_fixation(t_begin_exp)
+            win.flip()                  # Update screen
+            break_flag, key_pressed = escapeCondition()
+
+        return break_flag        
+   
+    
 
 
     ############## Exp. begin ##############
 
     # Display first set of instructions and wait
-    message1 = visual.TextStim(win, pos=[0,0],text=init_mess_1)
+    message1 = visual.TextStim(win, pos=[0,0], text=init_mess_1, height=0.001, units='norm')
     message1.size = .1
     message1.draw()
     win.flip()
@@ -337,27 +422,40 @@ def main_block_design(win,globalClock, data_loaded):
     else:
         event.waitKeys()    #pause until there's a keypress         
 
+    Conditions = {'blinking': apparent_motion, 'baseline': displayFixation, 'localiser': localiser,
+                'out-time_begin': apparent_motion, 'in-time_begin': apparent_motion,
+                'out-time_late': apparent_motion, 'in-time_late': apparent_motion}
 
     ## Start runs
     experiment_begin = dt.now()
-    for i_block in range(N_blocks):           # Run experiment a 'block' at the time    
-        
-        # Fixation
-        if displayFixation(win, fixation_time=Initial_baseline) == False: break
-        if displayBoxes(win, boxes_time=Boxes_time) == False: break
 
-        # Save a json with all the parameters
-        data_to_save = {"square_up.pos": list(square_up.pos), "square_up.size": list(square_up.size), 
-                        "square_bottom.pos": list(square_bottom.pos), "square_bottom.size": list(square_bottom.size),
-                        "square_target.pos": list(square_target.pos), "square_target.size": list(square_target.size), 
-                        "show_boxes": display_options.show_boxes, "show_target": display_options.show_target,
-                        "fixation.pos": list(fixation.pos), "win.size": list([str(i) for i in win.size])
-                        }
-        with open(opj(path_out, json_filename), "w") as file:
-            json.dump(data_to_save, file, indent=4)
-        logging.data('data_saved: ' + ', '.join([f'{key}: {value}' for key, value in data_to_save.items()]))
+    break_flag = True
+    # Run over the runs
+    for i_runs in range(1, N_runs+1):           # Run experiment a 'run' at the time    
+        i_run_design = design[design['run'] == i_runs]
+        logging.data('')
+        logging.data(f'******* RUN {i_runs}/{N_runs} *******')
 
+        # Run over the blocks
+        for index, j_block in i_run_design.iterrows():
+            logging.data('')
+            logging.data(f'Start time: {(dt.now()-experiment_begin).total_seconds()}')
+            logging.data(f'Run: {i_runs}, Block: {index + N_runs*(i_runs-1)}')
+            logging.data('Condition: %s' % j_block['condition'])
+            j_time = float(j_block['t_end'] - j_block['t_start'])
+            logging.data('Duration: %s sec.' % j_time)
 
+            # Call the proper function
+            break_flag = Conditions[j_block['condition']](win, 
+                                    time=j_time, 
+                                    break_flag=True, 
+                                    **timelines[j_block['condition']], 
+                                    timing=j_block['timing'],
+                                    t_zero=experiment_begin)
+            if break_flag == False: break
+
+        if break_flag == False: break
+            
 
     # Display final message
     message4 = visual.TextStim(win,pos=[0,0.25],text=final_message)
@@ -367,6 +465,7 @@ def main_block_design(win,globalClock, data_loaded):
     win.flip()
     core.wait(4)
     
+    logging.data('')
     logging.data('***** End *****\n')
     logging.data('Total time spent: %s' % (dt.now() - experiment_begin))
     logging.data('Every frame duration saved in %s' % (path_out+Frames_durations_name))
@@ -382,7 +481,7 @@ if __name__ == "__main__":
     if all_infos == None:
         sys.exit(0)
     else:
-        operator, DEBUG_MODE, BUTTON_BOX, IMPORT_LAST_PARAMETERS, subject_code = all_infos
+        operator, BUTTON_BOX, IMPORT_LAST_PARAMETERS, subject_code = all_infos
 
     # Prepare out folder
     path_out = Dir_save + dt.today().strftime('%Y-%m-%d_%H-%M-%S') + '_' + subject_code
@@ -396,7 +495,7 @@ if __name__ == "__main__":
     logging.data("------------- " + strftime("%Y-%m-%d %H:%M:%S", gmtime()) + " -------------")
     logging.data(pyschopy_prefs)
     logging.data("Saving in folder: " + path_out)
-    logging.data("Initial setup (operator, DEBUG_MODE, BUTTON_BOX, IMPORT_LAST_PARAMETERS, subject_code): " + str(all_infos))
+    logging.data("Initial setup (operator, BUTTON_BOX, IMPORT_LAST_PARAMETERS, subject_code): " + str(all_infos))
     logging.data('***** Starting *****')
 
     if BUTTON_BOX:
@@ -421,6 +520,21 @@ if __name__ == "__main__":
         data_loaded = {}
         logging.data('No json loaded (does not exist or not loadable)')
 
+    # Load the csv file with the design matrix
+    design = load_csv_design(Csv_name)
+    N_runs = len(design['run'].unique())
+
+    # Create the timeline for the experiment
+    timelines = {}
+    for i in ['in-time', 'out-time']:
+        for j in ['begin', 'late']:
+            timelines[f'{i}_{j}'] = create_timeline_blocks(AM_inducers_cycles, i, j, block_duration=Block_duration*1000)
+
+    timelines['blinking'] = create_timeline_blocks(AM_inducers_cycles, 'blinking', 'blinking', block_duration=Block_duration*1000)
+    timelines['localiser'] = {}
+    timelines['baseline'] = {}
+    fixation_timeline = create_timeline_fixation(duration=design['t_end'].max())
+
     # Start window
     my_monitor = monitors.Monitor(name='my_monitor_name')
     my_monitor.setSizePix(Screen_dimensions)
@@ -434,7 +548,7 @@ if __name__ == "__main__":
 
     # Main stimulation    
     try:
-        main_block_design(win,globalClock, data_loaded)
+        main_block_design(win, globalClock, data_loaded, timelines, fixation_timeline)
     except Exception as e:
         logging.log(e,level=logging.ERROR)
         
@@ -451,6 +565,60 @@ if __name__ == "__main__":
 
 
 
+    # j_block = design.iloc[12]
+    # j_time = float(j_block['t_end'] - j_block['t_start'])
+    # blinking(win, time=2, break_flag=True)
+    # localiser(win, time=5, break_flag=True, timing=2)
+    # blinking(win, time=5, break_flag=True, timing=1)
+    # displayFixation(win, time=2, break_flag=True)
+    # apparent_motion(win, time=3, break_flag=True, **timelines[j_block['condition']])
+    # # apparent_motion(win, time=j_time, break_flag=True, **timelines[j_block['condition']])
+    # print(j_block['condition'])
+
+
+
+
+    # def blinking(win, time=2, break_flag=True, **kwargs):
+    #     ''' 
+    #     Display the -blinking- condition (target box only).
+    #         :param time: total duration of the block (in sec.), 
+    #             which means fixation for 'time' - 'timing' sec.
+    #         :param timing: duration of the blinking (in sec.)
+    #     '''
+        
+    #     # Blinking
+    #     Blinking_timing = kwargs['timing']
+    #     timer_blinking = core.CountdownTimer(Blinking_timing)            
+    #     while (timer_blinking.getTime() > 0 and break_flag==True):    
+    #         t = globalClock.getTime()
+    #         # TODO: blinking 
+    #         # if t % Flash_period < Flash_period / 2.0:  # more accurate to count frames
+    #         #     square_up.color = 'white'
+    #         #     square_bottom.color = 'white'
+    #         # else:
+    #         #     square_up.color = 'black'
+    #         #     square_bottom.color = 'black'
+
+    #         # Display boxes
+    #         square_up.draw()
+    #         square_bottom.draw()
+    #         win.flip()                  # Update screen
+    #         break_flag, key_pressed = escapeCondition()
+
+    #     # Baseline
+    #     timer_fixation = core.CountdownTimer(time - Blinking_timing)    
+    #     while (timer_fixation.getTime() > 0 and break_flag==True):    
+
+    #         fixation.draw()                                        
+    #         win.flip()
+    #         break_flag, _ = escapeCondition()                  
+    #     return break_flag
+
+
+
+
+
+
         # print(win.size)
         # print([i for i in win.size])
 
@@ -459,3 +627,52 @@ if __name__ == "__main__":
 # distance_from_centre = 300              # (initial) distance between the fixation and the boxes (x-axis only)
 # boxes_size = 100                        # (initial) Box size inducers
 # box_target_size = 80                        # (initial) Box size target
+
+
+
+        # # Fixation
+        # if displayFixation(win, fixation_time=Initial_baseline) == False: break
+
+        # if blinking(win, boxes_time=Boxes_time) == False: break
+        # if in-time(win, boxes_time=Boxes_time) == False: break
+        # if out-time_late(win, boxes_time=Boxes_time) == False: break
+        # if apparent_motion(win, boxes_time=Boxes_time) == False: break
+        # if out-time_early(win, boxes_time=Boxes_time) == False: break
+
+
+        # if localiser(win, boxes_time=Boxes_time) == False: break
+        # if localiser(win, boxes_time=Boxes_time) == False: break
+        # if localiser(win, boxes_time=Boxes_time) == False: break
+
+
+
+    # for i in ['in-time', 'out-time']:
+    #     for j in ['begin', 'late']:
+    #         timeline_up, timeline_bottom, timeline_target = create_timeline_blocks(AM_inducers_cycles, i, j, block_duration=14*1000)
+    #         # plot
+    #         import matplotlib.pyplot as plt
+    #         plt.plot(timeline_up)
+    #         plt.plot(timeline_bottom)
+    #         plt.plot(timeline_target)
+    #         plt.legend(['up', 'bottom', 'target'])
+    #         plt.xlabel('Time (ms)')
+    #         plt.ylabel('position')
+    #         plt.title(f'Timeline timing:{i}, starting:{j}')
+    #         plt.show()
+    #         # plt.savefig(path_out + f'timeline_timing={i}_starting={j}.png')
+    #         plt.close()
+
+
+            # timelines = create_timeline_blocks(AM_inducers_cycles, 'blinking', 'blinking', block_duration=14*1000)
+            # # plot
+            # import matplotlib.pyplot as plt
+            # plt.plot(timelines['timeline_up'])
+            # plt.plot(timelines['timeline_bottom'], linestyle='--')
+            # plt.plot(timelines['timeline_target'])
+            # plt.legend(['up', 'bottom', 'target'])
+            # plt.xlabel('Time (ms)')
+            # plt.ylabel('position')
+            # plt.title(f'Timeline timing:blinking, starting:blinking')
+            # plt.show()
+            # # plt.savefig(path_out + f'timeline_timing={i}_starting={j}.png')
+            # plt.close()
