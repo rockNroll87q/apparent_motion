@@ -6,6 +6,8 @@ Created on Wednesday - May 10 2023, 14:33:12
 
 @author: Michele Svanera, University of Glasgow
 
+This code is used at the beginning of the experiment to obtain the best position for the boxes.
+Once those have been figured out, AM_experiment.py is the code to use to run the experiment.
  
 """
 
@@ -58,6 +60,7 @@ Increment_size = 1.1                    # % increase/decrease of size
 
 # Timing
 Boxes_time = 15                         # sec.
+Initial_baseline = 2#0                   # sec.
 Fixation_time = 2                      # sec.
 N_blocks = 4                            # #-repetitions of Fixation+Boxes
 
@@ -186,7 +189,64 @@ def main_block_design(win,globalClock, data_loaded):
             if key in ['escape', 'q']:
                 return False, key_pressed
         return True, key_pressed
-    
+
+    def key_checks(key_pressed, last_key_pressed):
+        ''' Checks on the single keys pressed '''
+
+        # Change position of the boxes + fixation with ['up', 'down', 'left', 'right']
+        if 'up' in key_pressed:
+            square_up.pos       = [square_up.pos[0], square_up.pos[1] + Increment_position]
+            square_bottom.pos   = [square_bottom.pos[0], square_bottom.pos[1] + Increment_position]
+            square_target.pos   = [square_target.pos[0], square_target.pos[1] + Increment_position]
+            # fixation.pos        = [fixation.pos[0], fixation.pos[1] + Increment_position]
+        if 'down' in key_pressed:
+            square_up.pos       = [square_up.pos[0], square_up.pos[1] - Increment_position]
+            square_bottom.pos   = [square_bottom.pos[0], square_bottom.pos[1] - Increment_position]
+            square_target.pos   = [square_target.pos[0], square_target.pos[1] - Increment_position]
+            # fixation.pos        = [fixation.pos[0], fixation.pos[1] - Increment_position]
+        if 'left' in key_pressed:
+            square_up.pos       = [square_up.pos[0] - Increment_position, square_up.pos[1]]
+            square_bottom.pos   = [square_bottom.pos[0] - Increment_position, square_bottom.pos[1]]
+            square_target.pos   = [square_target.pos[0] - Increment_position, square_target.pos[1]]
+            # fixation.pos        = [fixation.pos[0] - Increment_position, fixation.pos[1]]
+        if 'right' in key_pressed:
+            square_up.pos       = [square_up.pos[0] + Increment_position, square_up.pos[1]]
+            square_bottom.pos   = [square_bottom.pos[0] + Increment_position, square_bottom.pos[1]]
+            square_target.pos   = [square_target.pos[0] + Increment_position, square_target.pos[1]]
+            # fixation.pos        = [fixation.pos[0] + Increment_position, fixation.pos[1]]
+
+        # Change the boxes_separation with ['u', 'i']
+        if 'u' in key_pressed:
+            square_up.pos       = [square_up.pos[0], square_up.pos[1] + Increment_position]
+            square_bottom.pos   = [square_bottom.pos[0], square_bottom.pos[1] - Increment_position]
+            square_target.pos   = [square_target.pos[0], square_target.pos[1] - Increment_position]
+        if 'i' in key_pressed:
+            square_up.pos       = [square_up.pos[0], square_up.pos[1] - Increment_position]
+            square_bottom.pos   = [square_bottom.pos[0], square_bottom.pos[1] + Increment_position]
+            square_target.pos   = [square_target.pos[0], square_target.pos[1] + Increment_position]
+
+        # Change the boxes size with ['h', 'j']
+        if 'h' in key_pressed:
+            square_up.size      *= Increment_size
+            square_bottom.size  *= Increment_size
+            square_target.size  *= Increment_size
+        if 'j' in key_pressed:
+            square_up.size      /= Increment_size
+            square_bottom.size  /= Increment_size
+            square_target.size  /= Increment_size
+        
+        # Make the target disappear or re-appear
+        if 'b' in key_pressed:
+            display_options.swap_boxes()
+        if 't' in key_pressed:
+            display_options.swap_target()
+
+        if DEBUG_MODE:
+            key_pressed_str = (' - '.join(key_pressed))
+            if last_key_pressed != key_pressed_str and key_pressed_str != '':
+                last_key_pressed = key_pressed_str
+                button_pressed_string.text = 'Key pressed: ' + last_key_pressed
+        return last_key_pressed
 
     # DEBUG stimuli
     if DEBUG_MODE:
@@ -241,64 +301,11 @@ def main_block_design(win,globalClock, data_loaded):
                 square_target.draw()
             win.flip()                  # Update screen
             break_flag, key_pressed = escapeCondition()
-
-            # Change position of the boxes + fixation with ['up', 'down', 'left', 'right']
-            if 'up' in key_pressed:
-                square_up.pos       = [square_up.pos[0], square_up.pos[1] + Increment_position]
-                square_bottom.pos   = [square_bottom.pos[0], square_bottom.pos[1] + Increment_position]
-                square_target.pos   = [square_target.pos[0], square_target.pos[1] + Increment_position]
-                # fixation.pos        = [fixation.pos[0], fixation.pos[1] + Increment_position]
-            if 'down' in key_pressed:
-                square_up.pos       = [square_up.pos[0], square_up.pos[1] - Increment_position]
-                square_bottom.pos   = [square_bottom.pos[0], square_bottom.pos[1] - Increment_position]
-                square_target.pos   = [square_target.pos[0], square_target.pos[1] - Increment_position]
-                # fixation.pos        = [fixation.pos[0], fixation.pos[1] - Increment_position]
-            if 'left' in key_pressed:
-                square_up.pos       = [square_up.pos[0] - Increment_position, square_up.pos[1]]
-                square_bottom.pos   = [square_bottom.pos[0] - Increment_position, square_bottom.pos[1]]
-                square_target.pos   = [square_target.pos[0] - Increment_position, square_target.pos[1]]
-                # fixation.pos        = [fixation.pos[0] - Increment_position, fixation.pos[1]]
-            if 'right' in key_pressed:
-                square_up.pos       = [square_up.pos[0] + Increment_position, square_up.pos[1]]
-                square_bottom.pos   = [square_bottom.pos[0] + Increment_position, square_bottom.pos[1]]
-                square_target.pos   = [square_target.pos[0] + Increment_position, square_target.pos[1]]
-                # fixation.pos        = [fixation.pos[0] + Increment_position, fixation.pos[1]]
-
-            # Change the boxes_separation with ['u', 'i']
-            if 'u' in key_pressed:
-                square_up.pos       = [square_up.pos[0], square_up.pos[1] + Increment_position]
-                square_bottom.pos   = [square_bottom.pos[0], square_bottom.pos[1] - Increment_position]
-                square_target.pos   = [square_target.pos[0], square_target.pos[1] - Increment_position]
-            if 'i' in key_pressed:
-                square_up.pos       = [square_up.pos[0], square_up.pos[1] - Increment_position]
-                square_bottom.pos   = [square_bottom.pos[0], square_bottom.pos[1] + Increment_position]
-                square_target.pos   = [square_target.pos[0], square_target.pos[1] + Increment_position]
-
-            # Change the boxes size with ['h', 'j']
-            if 'h' in key_pressed:
-                square_up.size      *= Increment_size
-                square_bottom.size  *= Increment_size
-                square_target.size  *= Increment_size
-            if 'j' in key_pressed:
-                square_up.size      /= Increment_size
-                square_bottom.size  /= Increment_size
-                square_target.size  /= Increment_size
-            
-            # Make the target disappear or re-appear
-            if 'b' in key_pressed:
-                display_options.swap_boxes()
-            if 't' in key_pressed:
-                display_options.swap_target()
-
+            last_key_pressed = key_checks(key_pressed, last_key_pressed)
             if DEBUG_MODE:
                 if t - last_fps_update > Fps_update_rate:         # update the fps text every second
                     fps_text.text = "%.2f fps" % win.fps()
                     last_fps_update += 1         
-
-                key_pressed_str = (' - '.join(key_pressed))
-                if last_key_pressed != key_pressed_str and key_pressed_str != '':
-                    last_key_pressed = key_pressed_str
-                    button_pressed_string.text = 'Key pressed: ' + last_key_pressed
 
         return break_flag
    
@@ -335,7 +342,7 @@ def main_block_design(win,globalClock, data_loaded):
     for i_block in range(N_blocks):           # Run experiment a 'block' at the time    
         
         # Fixation
-        if displayFixation(win, fixation_time=Fixation_time) == False: break
+        if displayFixation(win, fixation_time=Initial_baseline) == False: break
         if displayBoxes(win, boxes_time=Boxes_time) == False: break
 
         # Save a json with all the parameters
@@ -399,8 +406,8 @@ if __name__ == "__main__":
     # Retrieve the json with parameters if exists
     if IMPORT_LAST_PARAMETERS:
         all_jsons = find_list_of_file(Dir_save, json_filename)
-        subj_json = sorted([i for i in all_jsons if subject_code in i])[-1]
         try:
+            subj_json = sorted([i for i in all_jsons if subject_code in i])[-1]
             with open(subj_json, "r") as file:
                 data_loaded = json.load(file)
 
