@@ -53,7 +53,7 @@ boxes_separation = 6                  # (initial) distance between the two boxes
 distance_from_centre = 5              # (initial) distance between the fixation and the boxes (x-axis only)
 boxes_size = (1.2, 1.2)                        # (initial) Box size inducers
 target_size = (1., 1.)                        # (initial) Box size target
-target_pos = -2.5/2
+target_pos = -boxes_separation/2+ boxes_separation*1/3                   #-2.5/2
 Flash_period = 0.2                              # seconds for one B-W cycle (ie 1/Hz)
 Increment_position = 0.05                 # % of move the boxes with the keyboard arrows
 Increment_size = 1.1                    # % increase/decrease of size
@@ -216,14 +216,17 @@ def main_block_design(win,globalClock, data_loaded):
             # fixation.pos        = [fixation.pos[0] + Increment_position, fixation.pos[1]]
 
         # Change the boxes_separation with ['u', 'i']
+        # Make sure the target is always in the ratio 1/3 and 2/3 of the boxes separation
         if 'u' in key_pressed:
-            square_up.pos       = [square_up.pos[0], square_up.pos[1] + Increment_position]
+            square_up.pos       = [square_up.pos[0], square_up.pos[1] + 2*Increment_position]
             square_bottom.pos   = [square_bottom.pos[0], square_bottom.pos[1] - Increment_position]
-            square_target.pos   = [square_target.pos[0], square_target.pos[1] - Increment_position]
+            dist_boxes = abs(square_up.pos[1] - square_bottom.pos[1])
+            square_target.pos   = [square_target.pos[0], (square_bottom.pos[1] + 1/3*dist_boxes)]
         if 'i' in key_pressed:
-            square_up.pos       = [square_up.pos[0], square_up.pos[1] - Increment_position]
+            square_up.pos       = [square_up.pos[0], square_up.pos[1] - 2*Increment_position]
             square_bottom.pos   = [square_bottom.pos[0], square_bottom.pos[1] + Increment_position]
-            square_target.pos   = [square_target.pos[0], square_target.pos[1] + Increment_position]
+            dist_boxes = abs(square_up.pos[1] - square_bottom.pos[1])
+            square_target.pos   = [square_target.pos[0], (square_bottom.pos[1] + 1/3*dist_boxes)]
 
         # Change the boxes size with ['h', 'j']
         if 'h' in key_pressed:

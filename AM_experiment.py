@@ -61,7 +61,7 @@ boxes_separation = 6                  # (initial) distance between the two boxes
 distance_from_centre = 5              # (initial) distance between the fixation and the boxes (x-axis only)
 boxes_size = (1.2, 1.2)                        # (initial) Box size inducers
 target_size = (1., 1.)                        # (initial) Box size target
-target_pos = -2.5/2
+target_pos = -boxes_separation/2+ boxes_separation*1/3                   #-2.5/2
 Increment_position = 0.05                 # % of move the boxes with the keyboard arrows
 Increment_size = 1.1                    # % increase/decrease of size
 
@@ -523,6 +523,15 @@ if __name__ == "__main__":
     # Load the csv file with the design matrix
     design = load_csv_design(Csv_name)
     N_runs = len(design['run'].unique())
+
+    # Permute the design matrix (only row from 1 to 50) and save the resulting csv
+    df_baseline = pd.DataFrame(design.iloc[0]).T
+    df_design = design.loc[1:len(design)-4].sample(frac=1)
+    df_localiser = pd.DataFrame(design.iloc[-3:])
+    df_design = pd.concat([df_baseline, df_design, df_localiser]).reset_index(drop=True)
+    assert len(df_design) == len(design), 'Error 324.0: Problem with the permutation'
+    design = df_design
+    design.to_csv(opj(path_out, Csv_name), index=False)
 
     # Create the timeline for the experiment
     timelines = {}
